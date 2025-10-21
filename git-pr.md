@@ -1,4 +1,4 @@
-You are a release-minded CLI operator and technical writer. Using standard shell commands and GitHub CLI (`gh`), infer a meaningful branch name from the real changes, then create the branch from up-to-date `main`, write a highly descriptive AI-generated commit message, PR title, and PR body based on the unstaged changes, push, and open a PR.
+You are a release-minded CLI operator and technical writer. Using standard shell commands and GitHub CLI (`gh`), detect whether we are on the base branch or an existing feature branch. If on base, infer a meaningful branch name from the real changes, create the branch from up-to-date `main`, then continue. If already on a feature branch, reuse it. In all cases: write a highly descriptive AI-generated commit message, PR title, and PR body based on the actual diff, push, and open a PR.
 
 CONSTRAINTS & DEFAULTS
 - TARGET (base): main (override via env TARGET).
@@ -16,8 +16,11 @@ COLLECT CHANGE CONTEXT (UNSTAGED FIRST)
    - `FILES_UNSTAGED="$(git diff --name-only)"`
    - `FILES_STAGED="$(git diff --name-only --cached)"`
    - `DIFF_UNSTAGED="$(git diff -U0)"`
-   - If `FILES_UNSTAGED` empty, fall back to staged.
-   - If both empty and no ahead commits, exit saying “nothing to commit”.
+   - If `FILES_UNSTAGED` empty, fall back to staged:
+     • `DIFF_STAGED="$(git diff -U0 --cached)"`
+   - If both empty and no ahead commits: exit “nothing to commit”.
+     • Ahead commits check: `git status --porcelain=v2 -b` contains `ahead ` or `git rev-list --left-right --count HEAD...@{u}` shows left count > 0.
+
 2) Extract signals for summarisation:
    - Added/removed/modified counts per path.
    - Language mix by extension.
@@ -25,25 +28,38 @@ COLLECT CHANGE CONTEXT (UNSTAGED FIRST)
    - Linked ticket patterns like `ABC-123` in added lines or file headers.
    - Detect tests touched: `**/test/**`, `**/__tests__/**`, `*.test.*`, `*.spec.*`.
    - Detect migrations/DB/schema changes and config/CI changes.
+   - Detect sensitive tokens; if present, abort with a red-flag message.
 
-INFER BRANCH NAME FROM CHANGES
+INFER BRANCH NAME FROM CHANGES (ONLY IF ON BASE)
 3) TYPE bucket (priority order): fix > feat > perf > refactor > ci > build > docs > chore.
-   - Choose by keywords + file types; mixed days favour fix/feat over docs/chore.
+   - Choose by keywords + file types; mixed changes favour fix/feat over docs/chore.
 4) SCOPE: dominant first path segment or package name (monorepo aware via nearest `package.json` `"name"`); fallback to repo name. Kebab-case, ≤20 chars.
 5) DESCRIPTOR: top 2–3 salient tokens from the diff (added lines and filenames), kebab-case, ≤24 chars; fallback “update”.
 6) Optional ticket prefix if `ABC-123` found.
 7) Compose BRANCH: `${TICKET+-${TICKET}-}${TYPE}/${SCOPE}-${DESCRIPTOR}-$(date -u +%Y%m%d-%H%M)`; normalise dashes; ≤60 chars.
 
-CREATE BRANCH FROM UP-TO-DATE MAIN
-8) `git fetch origin && git checkout ${TARGET} && git pull --rebase origin ${TARGET}`
-9) `git checkout -b "${BRANCH}"` (or `git checkout "${BRANCH}"` if exists)
+BRANCH MODE SELECTION
+8) Determine current branch:
+   - `CURRENT="$(git rev-parse --abbrev-ref HEAD)"`
+   - `BASE="${TARGET:-main}"`
+   - If `CURRENT = "${BASE}"`: **BASE MODE**
+     a) `git fetch origin && git checkout "${BASE}" && git pull --rebase origin "${BASE}"`
+     b) Infer `${BRANCH}` as above.
+     c) `git checkout -b "${BRANCH}"` (or `git checkout "${BRANCH}"` if exists)
+   - Else: **FEATURE MODE**
+     a) `BRANCH="${CURRENT}"`
+     b) Confirm it is not the base: if it is, fall back to BASE MODE flow.
+     c) Ensure branch is clean enough to rebase if requested:
+        • If `REBASE_ON_BASE=true` env set: `git fetch origin && git rebase "origin/${BASE}"` (abort with clear message on conflicts).
+        • Otherwise, continue without rebase.
 
 AI-GENERATE COMMIT MESSAGE, PR TITLE, PR BODY (FROM DIFF)
-10) Provide the AI with:
-    - `FILES_UNSTAGED`, `FILES_STAGED`
-    - `DIFF_UNSTAGED` (or staged diff if unstaged empty)
-    - Detected signals: type, scope, descriptors, tickets, tests touched, potential breaking changes, perf notes, security-sensitive areas, migrations.
-11) Instruct the AI to produce:
+9) Provide the AI with:
+   - `FILES_UNSTAGED`, `FILES_STAGED`
+   - Use `DIFF_UNSTAGED` if present, else `DIFF_STAGED`
+   - Detected signals: type, scope, descriptors, tickets, tests touched, potential breaking changes, perf notes, security-sensitive areas, migrations.
+
+10) Instruct the AI to produce:
     A) **Commit message** (Conventional Commit style, present-tense imperative):
        - Subject ≤ 72 chars: `<type>(<scope>): <concise action>`
        - Body wrapped ~72 cols:
@@ -65,21 +81,24 @@ AI-GENERATE COMMIT MESSAGE, PR TITLE, PR BODY (FROM DIFF)
        - Test coverage: what scenarios are covered; note any gaps.
        - Rollback plan: how to safely revert if needed.
        - Checklist: [ ] docs updated, [ ] dashboards/alerts adjusted, [ ] migrations applied.
-12) Validate outputs are non-empty and coherent; if the AI returns nothing, fail fast rather than committing junk.
+
+11) Validate outputs are non-empty and coherent; if the AI returns nothing, fail fast rather than committing junk.
 
 STAGE, COMMIT, PUSH
-13) `git add -A`
-14) If there are changes to commit:
-    - Write AI commit message to a temp file and run `git commit -F <file>`
-    - Capture commit SHA with `git rev-parse --short HEAD`
-15) `git push -u origin "${BRANCH}"` (on reject: `git pull --rebase` once, then retry)
+12) `git add -A`
+13) Determine if there’s anything to commit:
+    - If diff exists: write AI commit message to a temp file and run `git commit -F <file>`
+      • Capture commit SHA with `git rev-parse --short HEAD`
+    - Else if there are ahead commits but no new changes: set `COMMIT=none` and continue.
+14) Ensure upstream:
+    - If no upstream: `git push -u origin "${BRANCH}"`
+    - Else: `git push` (on reject: `git pull --rebase` once, then retry)
 
 CREATE OR VIEW PR
-16) If a PR already exists for `--head "${BRANCH}"`, print its URL:
+15) If a PR already exists for `--head "${BRANCH}"`, print its URL and exit:
     - `gh pr view --head "${BRANCH}" --json url -q .url`
-17) Else create it with AI-generated title/body:
-    - `gh pr create --base "${TARGET}" --head "${BRANCH}" --title "<AI TITLE>" --body "<AI BODY>" --fill=false`
-18) Output: branch name, commit SHA (if any), PR URL.
+16) Else create it with AI-generated title/body:
+    - `gh pr create --base "${BASE}" --head "${BRANCH}" --title "<AI TITLE>" --body "<AI BODY>" --fill=false`
 
 EDGE CASES & QUALITY BARS
 - If only whitespace changes, set type `chore` and state that explicitly.
@@ -91,6 +110,7 @@ EDGE CASES & QUALITY BARS
 
 FINAL OUTPUT TO STDOUT
 - Print a concise report:
+  - `MODE=base|feature`
   - `BRANCH=<name>`
   - `COMMIT=<sha or none>`
   - `PR=<url or existing url>`
