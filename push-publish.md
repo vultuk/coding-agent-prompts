@@ -1,18 +1,93 @@
-Analyze all changes since the last published version. 
-Determine the appropriate new version number using semantic versioning rules:
-- MAJOR for incompatible changes,
-- MINOR for backwards-compatible new features,
-- PATCH for backwards-compatible bug fixes.
+---
+name: push-publish
+description: Release and publish workflow. Determines the next semantic version, updates changelog and version metadata, tags and pushes, creates a release, merges the PR, and publishes if required.
+arguments:
+  - name: VERSION_OVERRIDE
+    required: false
+    description: Override the auto-detected version (e.g., "1.2.3" or "major/minor/patch")
+---
+
+# Push and Publish Release
+
+Analyse all changes since the last published version. Determine the appropriate new version number using semantic versioning rules:
+
+- **MAJOR** for incompatible API changes
+- **MINOR** for backwards-compatible new features
+- **PATCH** for backwards-compatible bug fixes
+
+## Prerequisites
+
+- Git repository with origin remote
+- `gh` CLI authenticated
+- Write access to the repository
+- (Optional) NPM credentials if publishing to NPM
+
+## Workflow
 
 Once ready:
-- Update the project’s version number in all relevant files. 
-- Update the @CHANGELOG.md file with the new changes
-- Create an appropriately names branch
-- Add all modified files to the commit (git add -A).
-- Create a commit with a clear message describing the version bump, following conventional commit format (e.g., "chore(release): vX.Y.Z").
-- Tag the commit with the new version number.
-- Push both the commit and the tag to GitHub.
-- Create a release from the new tag.
-- Create a PR to main from this new branch
-- Use the gh command to force merge the PR
-- Finally, if the project requires publishing to NPM you can publish the updated project.
+
+1. Update the project's version number in all relevant files
+2. Update the CHANGELOG.md file with the new changes
+3. Create an appropriately named branch (e.g., `release/v1.2.3`)
+4. Add all modified files to the commit (`git add -A`)
+5. Create a commit with a clear message following conventional commit format (e.g., `chore(release): v1.2.3`)
+6. Tag the commit with the new version number
+7. Push both the commit and the tag to GitHub
+8. Create a release from the new tag
+9. Create a PR to main from this new branch
+10. Use the gh command to merge the PR (with appropriate merge strategy)
+11. If the project requires publishing to NPM, publish the updated project
+
+## Error Handling
+
+### If NPM publish fails
+
+1. Check NPM authentication: `npm whoami`
+2. Verify package.json is valid: `npm pack --dry-run`
+3. Check if version already exists: `npm view <package>@<version>`
+4. If 2FA is required, ensure it's configured or use automation token
+
+### Rollback procedure
+
+If the release needs to be reverted:
+
+```bash
+# Delete the remote tag
+git push origin --delete v$VERSION
+
+# Delete the local tag
+git tag -d v$VERSION
+
+# Revert the version bump commit
+git revert HEAD
+
+# Push the revert
+git push origin main
+```
+
+For NPM packages:
+```bash
+# Deprecate the version (preferred over unpublish)
+npm deprecate <package>@<version> "Released in error, use <previous-version>"
+
+# Or unpublish within 72 hours (use sparingly)
+npm unpublish <package>@<version>
+```
+
+## Version Detection
+
+The prompt analyses:
+- Commit messages since last tag
+- Breaking change indicators (`BREAKING CHANGE:`, `!` in type)
+- Feature additions (`feat:`)
+- Bug fixes (`fix:`)
+- If no conventional commits, falls back to PATCH
+
+## Output
+
+After successful completion, report:
+- Previous version
+- New version
+- Changelog entries added
+- Release URL
+- NPM publish status (if applicable)
