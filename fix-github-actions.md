@@ -20,6 +20,55 @@ Using the gh command, identify and fix any failing GitHub Actions workflows for 
 - Git repository with GitHub remote
 - Write access to push fixes
 
+## SubAgent Strategy
+
+This workflow benefits from parallel SubAgent execution. Use the Task tool with these patterns:
+
+### Parallel Initial Analysis (Phase 1)
+
+Launch these SubAgents **in parallel** at the start:
+
+1. **Bash SubAgent**: Fetch failing run details
+   ```
+   Task(subagent_type="Bash", prompt="Run: gh run list --limit 10 --json databaseId,name,conclusion,headSha,headBranch and identify the most recent failure")
+   ```
+
+2. **Bash SubAgent**: Check current git status
+   ```
+   Task(subagent_type="Bash", prompt="Run git status and git branch to understand current state")
+   ```
+
+3. **Explore SubAgent**: Survey workflow files
+   ```
+   Task(subagent_type="Explore", prompt="Find all GitHub Actions workflow files in .github/workflows/ and summarise their purposes")
+   ```
+
+### Parallel Diagnosis (Phase 2)
+
+Once you have the failing run ID, launch **in parallel**:
+
+1. **Bash SubAgent**: Fetch full logs
+   ```
+   Task(subagent_type="Bash", prompt="Run: gh run view <RUN_ID> --log and save to action_failure.log")
+   ```
+
+2. **Explore SubAgent**: Analyse error patterns
+   ```
+   Task(subagent_type="Explore", prompt="Read action_failure.log and identify: 1) Error type (build/lint/type/test), 2) Affected files, 3) Root cause")
+   ```
+
+3. **Explore SubAgent**: Search codebase for related issues
+   ```
+   Task(subagent_type="Explore", prompt="Based on the error in <ERROR_SUMMARY>, search the codebase for related files and potential fixes")
+   ```
+
+### Fix Implementation (Phase 3)
+
+For complex fixes, use a **Plan SubAgent** first:
+```
+Task(subagent_type="Plan", prompt="Plan the fix for CI failure: <ERROR_DETAILS>. Consider: affected files, test implications, minimal change approach")
+```
+
 ## Workflow
 
 ### 1. Detect the latest failing run

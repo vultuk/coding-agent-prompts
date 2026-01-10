@@ -28,6 +28,65 @@ You are a release-minded CLI operator and technical writer. Using standard shell
 - Abort with a clear message if working tree has conflicts or detached HEAD
 - **Never commit files that may contain secrets** (.env, credentials, keys)
 
+## SubAgent Strategy
+
+This workflow benefits from **parallel context gathering** using SubAgents.
+
+### Phase 1: Parallel Context Collection
+
+Launch these SubAgents **simultaneously** using multiple Task tool calls in a single message:
+
+1. **Bash SubAgent**: Git state and changes
+   ```
+   Task(subagent_type="Bash", prompt="Run these commands and return results:
+   - git rev-parse --abbrev-ref HEAD
+   - git status --porcelain
+   - git diff --name-only
+   - git diff --name-only --cached
+   - git rev-list --left-right --count HEAD...@{u} 2>/dev/null || echo 'no upstream'")
+   ```
+
+2. **Bash SubAgent**: Diff content
+   ```
+   Task(subagent_type="Bash", prompt="Run: git diff -U3 (unstaged) and git diff -U3 --cached (staged). Return both.")
+   ```
+
+3. **Bash SubAgent**: Auth and remote verification
+   ```
+   Task(subagent_type="Bash", prompt="Run: gh auth status && git remote get-url origin. Verify we're authenticated and have a GitHub remote.")
+   ```
+
+4. **Bash SubAgent**: Recent commit history for style
+   ```
+   Task(subagent_type="Bash", prompt="Run: git log --oneline -10 to understand commit message conventions in this repo")
+   ```
+
+5. **Bash SubAgent**: Check for existing PR
+   ```
+   Task(subagent_type="Bash", prompt="Run: gh pr list --head $(git rev-parse --abbrev-ref HEAD) --json url,state to check if PR exists")
+   ```
+
+### Phase 2: Analysis (After Context Gathered)
+
+Use an **Explore SubAgent** to analyse the changes:
+```
+Task(subagent_type="Explore", prompt="Analyse these changes to determine:
+1. TYPE bucket (fix/feat/perf/refactor/ci/build/docs/chore)
+2. SCOPE (dominant path segment or package)
+3. DESCRIPTOR (salient tokens from changes)
+4. Any ticket patterns (ABC-123)
+5. Security concerns (secrets, tokens)
+6. Breaking changes
+Changes: <DIFF_CONTENT>")
+```
+
+### Phase 3: Content Generation
+
+For complex PRs, use a **general-purpose SubAgent** for message generation:
+```
+Task(subagent_type="general-purpose", prompt="Generate commit message, PR title, and PR body for these changes. Follow Conventional Commit style, UK English. Include: what changed, why, risks, test coverage. Changes: <ANALYSIS_RESULTS>")
+```
+
 ## Collect Change Context (Unstaged First)
 
 1. Gather files and diffs:

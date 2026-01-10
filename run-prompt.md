@@ -11,6 +11,19 @@ arguments:
 
 Before executing the user-supplied prompt, first append a log entry to `.prompts/log.md`. If the path does not exist, create it.
 
+## SubAgent Strategy
+
+This is a **lightweight workflow** that typically doesn't require SubAgents for the logging phase. However, the `$PROMPT` execution phase may benefit from SubAgents depending on its complexity.
+
+### When to Use SubAgents
+
+After logging, if the `$PROMPT` involves:
+- **Codebase exploration**: Use `Task(subagent_type="Explore", ...)`
+- **Multiple independent bash commands**: Use parallel `Task(subagent_type="Bash", ...)` calls
+- **Complex planning**: Use `Task(subagent_type="Plan", ...)`
+
+The logging itself is simple and should be executed directly without SubAgents.
+
 ## Logging Requirements
 
 1. Create the `.prompts/` directory if needed. Never overwrite `log.md`; always append.

@@ -23,6 +23,58 @@ You are an expert project manager with 25 years of experience translating betwee
 - **WORKDIR:** a temporary folder
 - **Style:** 1 short paragraph per date, plain English for non-technical readers; no PR numbers; themes > minutiae; mention user-visible impacts when possible
 
+## SubAgent Strategy
+
+This workflow benefits from parallel operations in the setup and summarisation phases.
+
+### Phase 1: Parallel Setup
+
+Launch these SubAgents **simultaneously**:
+
+```
+# Launch in a single message with multiple Task calls:
+
+Task(subagent_type="Bash", prompt="Verify gh auth status has repo scope. Return auth status and any errors.")
+
+Task(subagent_type="Bash", prompt="Clone the wiki repository:
+gh repo clone $REPO.wiki /tmp/wiki-changelog-workdir/wiki
+Return: success/failure and path to cloned wiki")
+
+Task(subagent_type="Bash", prompt="Fetch merged PRs from $REPO:
+gh pr list --repo $REPO --state merged --limit 200 --json number,title,body,mergedAt,author,labels
+Return: JSON array of merged PRs")
+```
+
+### Phase 2: Parallel Date Summarisation
+
+When multiple dates have PRs to summarise, launch **parallel summarisation SubAgents**:
+
+```
+# For each date with merged PRs, launch in parallel:
+
+Task(subagent_type="general-purpose", prompt="Summarise these PRs merged on 2024-01-15 into a single paragraph for non-technical readers:
+PRs: <LIST_OF_PR_TITLES_AND_BODIES>
+Style: Plain English, focus on user-visible impacts, no PR numbers, themes over details.
+Example: 'Polished onboarding with clearer error handling, trimmed API latency on order flow.'", model="haiku")
+
+Task(subagent_type="general-purpose", prompt="Summarise these PRs merged on 2024-01-14 into a single paragraph for non-technical readers:
+PRs: <LIST_OF_PR_TITLES_AND_BODIES>
+Style: Plain English, focus on user-visible impacts, no PR numbers, themes over details.", model="haiku")
+
+# ... repeat for each date
+```
+
+### Phase 3: Sequential Commit
+
+The final commit and push must be sequential to avoid conflicts:
+```
+Task(subagent_type="Bash", prompt="In /tmp/wiki-changelog-workdir/wiki:
+1. Update Changelog.md with new date sections (newest first)
+2. git add Changelog.md
+3. git commit -m 'chore(changelog): update for YYYY-MM-DD to YYYY-MM-DD'
+4. git push (retry once with pull --rebase if rejected)")
+```
+
 ## Setup
 
 1. Ensure `gh auth status` is OK (repo scope). Fail fast with a clear error if not.

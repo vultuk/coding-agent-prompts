@@ -15,6 +15,24 @@ Create a **concise and well-documented GitHub issue** using the `gh issue create
 
 The `$ISSUE_DETAILS` argument should contain the raw information about the issue. This prompt will structure it properly.
 
+## SubAgent Strategy
+
+This is a **simple single-step workflow** that typically doesn't require SubAgents. However, if you need to gather context before creating the issue:
+
+### Optional Pre-Issue Research
+
+If `$ISSUE_DETAILS` is vague or requires codebase investigation:
+
+```
+# Gather context first (if needed):
+
+Task(subagent_type="Explore", prompt="Investigate the issue described: <ISSUE_DETAILS>
+Find: affected files, related code, potential root cause, existing similar issues.
+Return: structured findings for issue creation.")
+```
+
+For straightforward issues with clear details, proceed directly to issue creation without SubAgents.
+
 ## Issue Structure
 
 Include:

@@ -22,6 +22,53 @@ Analyse all changes since the last published version. Determine the appropriate 
 - Write access to the repository
 - (Optional) NPM credentials if publishing to NPM
 
+## SubAgent Strategy
+
+This workflow benefits from parallel analysis in the early phases.
+
+### Phase 1: Parallel Discovery
+
+Launch these SubAgents **simultaneously**:
+
+1. **Bash SubAgent**: Get version info
+   ```
+   Task(subagent_type="Bash", prompt="Run these commands:
+   - git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0' (latest tag)
+   - git log $(git describe --tags --abbrev=0 2>/dev/null || echo '')..HEAD --oneline (commits since tag)
+   - cat package.json | jq -r .version 2>/dev/null (current package version)")
+   ```
+
+2. **Bash SubAgent**: Analyse commit types
+   ```
+   Task(subagent_type="Bash", prompt="Run: git log $(git describe --tags --abbrev=0 2>/dev/null)..HEAD --format='%s' and categorise commits by type (feat/fix/BREAKING CHANGE/etc)")
+   ```
+
+3. **Explore SubAgent**: Find version files
+   ```
+   Task(subagent_type="Explore", prompt="Find all files that contain version numbers that need updating: package.json, package-lock.json, Cargo.toml, pyproject.toml, version.ts, etc. List their paths and current versions.")
+   ```
+
+4. **Bash SubAgent**: Check NPM status (if applicable)
+   ```
+   Task(subagent_type="Bash", prompt="Run: npm whoami 2>/dev/null && npm view $(cat package.json | jq -r .name) versions --json 2>/dev/null to check NPM auth and existing versions")
+   ```
+
+### Phase 2: Changelog Generation
+
+Use a **general-purpose SubAgent** to generate the changelog:
+```
+Task(subagent_type="general-purpose", prompt="Generate a CHANGELOG.md entry for version <NEW_VERSION>. Group changes by: Added, Changed, Fixed, Removed, Security. Use these commits: <COMMIT_LIST>")
+```
+
+### Phase 3: Parallel Updates (After Version Determined)
+
+Launch these **in parallel** to update all version files:
+```
+Task(subagent_type="Bash", prompt="Update version in package.json to <NEW_VERSION> using: npm version <NEW_VERSION> --no-git-tag-version")
+```
+
+Additional file updates can be done in parallel with Edit tool calls.
+
 ## Workflow
 
 Once ready:

@@ -14,6 +14,83 @@ arguments:
 
 Analyse the entire codebase in detail and create actionable GitHub issues.
 
+## SubAgent Strategy
+
+This workflow is **highly parallelisable**. Each analysis category can run independently, and issue creation can be batched.
+
+### Phase 1: Parallel Category Analysis
+
+Launch **all analysis SubAgents simultaneously**:
+
+```
+# Launch in a single message with multiple Task calls:
+
+Task(subagent_type="Explore", prompt="SECURITY AUDIT: Analyse the codebase for security vulnerabilities. Look for:
+- Input validation gaps
+- Authentication/authorisation issues
+- Sensitive data exposure
+- Dependency vulnerabilities (check package.json, lock files)
+- Injection risks (SQL, command, XSS)
+- Insecure configurations
+Return: List of 3+ findings with file paths, line numbers, severity, and suggested fixes.", model="sonnet")
+
+Task(subagent_type="Explore", prompt="CODE QUALITY AUDIT: Analyse the codebase for code quality issues. Look for:
+- Code duplication (DRY violations)
+- Complex functions (high cyclomatic complexity)
+- Missing error handling
+- Inconsistent patterns
+- Dead code
+- Missing/outdated documentation
+Return: List of 3+ findings with file paths, line numbers, and improvement suggestions.", model="sonnet")
+
+Task(subagent_type="Explore", prompt="SYSTEM IMPROVEMENTS AUDIT: Analyse the codebase for enhancement opportunities. Look for:
+- Performance optimisations
+- Architectural improvements
+- Scalability concerns
+- Observability gaps (logging, metrics, tracing)
+- Developer experience improvements
+- Test coverage gaps
+Return: List of 3+ findings with affected areas and implementation suggestions.", model="sonnet")
+```
+
+### Phase 2: Issue Deduplication
+
+After all SubAgents return, consolidate findings:
+- Remove duplicates across categories
+- Prioritise by impact (high/medium/low)
+- Ensure no overlapping scope between issues
+
+### Phase 3: Parallel Issue Creation
+
+Launch **issue creation SubAgents in parallel** (batch by category):
+
+```
+# Create all issues in parallel:
+
+Task(subagent_type="Bash", prompt="Create GitHub issue using gh issue create:
+Title: <ISSUE_TITLE>
+Labels: security,priority:high
+Body: <FORMATTED_ISSUE_BODY>")
+
+Task(subagent_type="Bash", prompt="Create GitHub issue using gh issue create:
+Title: <ISSUE_TITLE>
+Labels: code-quality,priority:medium
+Body: <FORMATTED_ISSUE_BODY>")
+
+# ... repeat for all issues
+```
+
+### Alternative: Batch Issue Creation
+
+For efficiency, use a single **Bash SubAgent** to create all issues in sequence:
+```
+Task(subagent_type="Bash", prompt="Create these GitHub issues in sequence using gh issue create:
+1. [Issue 1 details]
+2. [Issue 2 details]
+...
+Return: List of created issue URLs")
+```
+
 ## Analysis Categories
 
 ### 1. Security Fixes (3 minimum)
