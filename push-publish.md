@@ -26,6 +26,8 @@ Analyse all changes since the last published version. Determine the appropriate 
 
 This workflow benefits from parallel analysis in the early phases.
 
+**Codex note:** Codex does not support `Task(...)` subagents. Use `functions.shell_command` and `multi_tool_use.parallel` to run the same commands, or run steps sequentially. For Explore/Plan tasks, use normal file searches and the plan tool. See [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+
 ### Phase 1: Parallel Discovery
 
 Launch these SubAgents **simultaneously**:

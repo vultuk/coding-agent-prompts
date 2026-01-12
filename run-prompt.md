@@ -15,6 +15,8 @@ Before executing the user-supplied prompt, first append a log entry to `.prompts
 
 This is a **lightweight workflow** that typically doesn't require SubAgents for the logging phase. However, the `$PROMPT` execution phase may benefit from SubAgents depending on its complexity.
 
+**Codex note:** Codex does not support `Task(...)` subagents. Use `functions.shell_command` and `multi_tool_use.parallel` to run the same commands, or run steps sequentially. For Explore/Plan tasks, use normal file searches and the plan tool. See [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+
 ### When to Use SubAgents
 
 After logging, if the `$PROMPT` involves:

@@ -32,6 +32,8 @@ You are a release-minded CLI operator and technical writer. Using standard shell
 
 This workflow benefits from **parallel context gathering** using SubAgents.
 
+**Codex note:** Codex does not support `Task(...)` subagents. Use `functions.shell_command` and `multi_tool_use.parallel` to run the same commands, or run steps sequentially. For Explore/Plan tasks, use normal file searches and the plan tool. See [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+
 ### Phase 1: Parallel Context Collection
 
 Launch these SubAgents **simultaneously** using multiple Task tool calls in a single message:

@@ -39,6 +39,7 @@ Arguments marked as `required: true` must always be provided when using the prom
 - Treat each file as an authoritative SOP: follow the sequence, guardrails, and reporting expectations it outlines.
 - Many prompts assume access to standard tooling such as Git, the GitHub CLI (`gh`), and project-specific scripts; ensure you meet the prerequisites before execution.
 - Maintain professionalism and accuracy - most instructions target high-scrutiny workflows like release management or executive reporting.
+- For Codex CLI vs Claude Code differences (subagents, headless execution), see [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
 
 ## Related Skills
 

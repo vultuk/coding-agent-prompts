@@ -24,6 +24,8 @@ Using the gh command, identify and fix any failing GitHub Actions workflows for 
 
 This workflow benefits from parallel SubAgent execution. Use the Task tool with these patterns:
 
+**Codex note:** Codex does not support `Task(...)` subagents. Use `functions.shell_command` and `multi_tool_use.parallel` to run the same commands, or run steps sequentially. For Explore/Plan tasks, use normal file searches and the plan tool. See [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+
 ### Parallel Initial Analysis (Phase 1)
 
 Launch these SubAgents **in parallel** at the start:

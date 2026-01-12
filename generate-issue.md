@@ -19,6 +19,8 @@ The `$ISSUE_DETAILS` argument should contain the raw information about the issue
 
 This is a **simple single-step workflow** that typically doesn't require SubAgents. However, if you need to gather context before creating the issue:
 
+**Codex note:** Codex does not support `Task(...)` subagents. Use `functions.shell_command` and `multi_tool_use.parallel` to run the same commands, or run steps sequentially. For Explore/Plan tasks, use normal file searches and the plan tool. See [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+
 ### Optional Pre-Issue Research
 
 If `$ISSUE_DETAILS` is vague or requires codebase investigation:

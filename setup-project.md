@@ -35,6 +35,8 @@ You are a senior full-stack engineer. Set up a fresh, production-ready monorepo 
 
 This large scaffolding workflow benefits significantly from **parallel SubAgent execution**. Structure the work in phases:
 
+**Codex note:** Codex does not support `Task(...)` subagents. Use `functions.shell_command` and `multi_tool_use.parallel` to run the same commands, or run steps sequentially. For Explore/Plan tasks, use normal file searches and the plan tool. See [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+
 ### Phase 1: Sequential Foundation
 
 These must run sequentially as they have dependencies:

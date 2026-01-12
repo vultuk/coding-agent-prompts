@@ -18,6 +18,8 @@ Analyse the entire codebase in detail and create actionable GitHub issues.
 
 This workflow is **highly parallelisable**. Each analysis category can run independently, and issue creation can be batched.
 
+**Codex note:** Codex does not support `Task(...)` subagents. Use `functions.shell_command` and `multi_tool_use.parallel` to run the same commands, or run steps sequentially. For Explore/Plan tasks, use normal file searches and the plan tool. See [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+
 ### Phase 1: Parallel Category Analysis
 
 Launch **all analysis SubAgents simultaneously**:
